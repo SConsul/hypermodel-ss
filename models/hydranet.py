@@ -1,6 +1,6 @@
 import torch.nn as nn
-from feature_extractor import _Encoder
-from heads import TargetHead,PseudoHeads
+from models.feature_extractor import _Encoder
+from models.heads import TargetHead,PseudoHeads
 
 class HydraNet(nn.Module):
     def __init__(self,num_heads:int, num_features: int,num_classes:int,pretrained:bool):

@@ -13,7 +13,7 @@ class PseudoHeads(nn.Module):
         
         self.heads = []
         for _ in range(self.num_heads):
-            self.heads.append(nn.Seqeuntial(
+            self.heads.append(nn.Sequential(
                                 nn.Linear(num_features, num_features),
                                 nn.BatchNorm1d(num_features),
                                 nn.ReLU(),
@@ -23,14 +23,14 @@ class PseudoHeads(nn.Module):
         self.heads = nn.ModuleList(self.heads)
     
     def forward(self,x):
-        head_out = [F.softmax(head(x,dim=-1) for head in self.heads]
+        head_out = [F.softmax(head(x),dim=-1) for head in self.heads]
         return head_out
 
 class TargetHead(nn.Module):
     def __init__(self, num_features: int,num_classes:int,pretrained:bool):
         super().__init__()
         self.pretrained = pretrained
-        self.classifier = nn.Seqeuntial(
+        self.classifier = nn.Sequential(
             nn.Linear(num_features, num_features),
             nn.BatchNorm1d(num_features),
             nn.ReLU(),

@@ -1,4 +1,3 @@
-from numpy.random.mtrand import shufflew
 import torch 
 import torch.nn as nn
 from itertools import chain
@@ -7,9 +6,11 @@ from torch.utils.data import ConcatDataset, DataLoader
 from torchvision import datasets, transforms
 from wilds.common.data_loaders import get_train_loader,get_eval_loader
 from models.hydranet import HydraNet
-from datasets import get_dummy
+from datasets.dummy_datasets import get_dummy
 from utils import get_inf_iterator, save_model, get_inf_iterator
 from evaluate import evaluate
+from torch.utils.tensorboard import SummaryWriter
+
 
 def pseudo_label(net,target_dataset, n_t,batch_size=16,threshold = 0.9):
     assert net.num_heads>1, 'Number of pseudo-heads must be 2 or more'
@@ -46,11 +47,12 @@ def pseudo_label(net,target_dataset, n_t,batch_size=16,threshold = 0.9):
 
 def pre_train(net,train_dataset,val_dataset,batch_size,num_epochs):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    criterion = nn.CrossEntropy()
+    criterion = nn.CrossEntropyLoss()
     optimizer_S = torch.optim.Adam(net.parameters())
 
     
     train_loader = get_train_loader('standard', train_dataset, batch_size=batch_size)
+    writer = SummaryWriter()
 
     # train with source samples
     for epoch in range(num_epochs):
@@ -62,17 +64,26 @@ def pre_train(net,train_dataset,val_dataset,batch_size,num_epochs):
             label = Variable(label.to(device))
             optimizer_S.zero_grad()
             t_out, p_outs = net(img)
-            loss_p = [criterion(p_out, label) for p_out in p_outs]
             loss_t = criterion(t_out, label)
-            loss = loss_t + sum(loss_p)
+            loss = loss_t 
+            if net.num_heads>0:
+                loss_p = [criterion(p_out, label) for p_out in p_outs]
+                loss += sum(loss_p)
             loss.backward()
             optimizer_S.step()
             Loss_T +=loss_t
-            Loss_P += sum(loss_p)/len(loss_p)
+            if net.num_heads>0:
+                Loss_P += sum(loss_p)/len(loss_p)
+            # else:
+            #     print("train_T_Loss={:.5f}".format(loss_t))
+            #     print(type(Loss_T))
         Loss_T = Loss_T/len(train_loader)
-        Loss_P = Loss_P/len(train_loader)    
-        print("Epoch {}/{}: train_T_Loss={:.5f}, train_P_Loss={:.5f}".format(epoch+1,num_epochs,Loss_T,Loss_P))
-
+        Loss_P = Loss_P/len(train_loader)  
+        if net.num_heads>0:  
+            print("Epoch {}/{}: train_T_Loss={:.5f}, train_P_Loss={:.5f}".format(epoch+1,num_epochs,Loss_T,Loss_P))
+        else:
+            print("Epoch {}/{}: train_T_Loss={:.5f}".format(epoch+1,num_epochs,Loss_T))
+            writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
             val_cerr = evaluate(net,val_dataset,batch_size)
             print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,val_cerr))
@@ -88,7 +99,7 @@ def domain_adapt(net, source_dataset, target_dataset, batch_size, num_psudo_step
     target_dataset_labelled = pseudo_label(net,target_dataset,n_t)
     merged_dataset = ConcatDataset([source_dataset, target_dataset_labelled])
 
-    criterion = nn.CrossEntropy()
+    criterion = nn.CrossEntropyLoss()
     optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pheads.parameters()))
     optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()))
 

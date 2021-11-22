@@ -3,3 +3,6 @@
 *~
 *.swp
 .vscode/
+*.png
+data/
+.ipynb_checkpoints/
