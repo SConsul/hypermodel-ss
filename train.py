@@ -12,13 +12,13 @@ from evaluate import evaluate
 from torch.utils.tensorboard import SummaryWriter
 
 
-def pseudo_label(net,target_dataset, n_t,batch_size=16,threshold = 0.9):
+def pseudo_label(net,device, target_dataset, n_t,batch_size=16,threshold = 0.9):
     assert net.num_heads>1, 'Number of pseudo-heads must be 2 or more'
     net.eval()
     total_outs = None
     target_dataloader = DataLoader(target_dataset,batch_size=batch_size, shuffle=False)
     for img,_,_ in target_dataloader:
-        _,p_outs = net(img) #p_outs is of list of len num_heads of Tensors of size (BxC)
+        _,p_outs = net(img.to(device)) #p_outs is of list of len num_heads of Tensors of size (BxC)
         if total_outs is None:
             total_outs = p_outs.data.cpu()
         else:
@@ -45,8 +45,7 @@ def pseudo_label(net,target_dataset, n_t,batch_size=16,threshold = 0.9):
     target_dataset_labelled = get_dummy(target_dataset,excerpt,pseudo_labels,get_dataset=True)
     return target_dataset_labelled
 
-def pre_train(net,train_dataset,val_dataset,batch_size,num_epochs):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
     criterion = nn.CrossEntropyLoss()
     optimizer_S = torch.optim.Adam(net.parameters())
 
@@ -89,8 +88,7 @@ def pre_train(net,train_dataset,val_dataset,batch_size,num_epochs):
             print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,val_cerr))
             save_model(net,"source_trained_{}.pt".format(epoch+1))
 
-def domain_adapt(net, source_dataset, target_dataset, batch_size, num_psudo_steps, num_adapt_epochs, n_t):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_psudo_steps, num_adapt_epochs, n_t):
     # domain adaptation
     if net.num_heads == 0:
         return

@@ -34,8 +34,7 @@ def calib_err(confidence, correct, p='2', beta=100):
 
     return cerr
 
-def evaluate(net,test_dataset,batch_size):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def evaluate(net,device,test_dataset,batch_size):
     net.eval()
     test_dataloader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
     confidences=[]
