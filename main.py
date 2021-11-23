@@ -1,3 +1,4 @@
+import torch
 from train import pre_train, pseudo_label, domain_adapt
 from models.hydranet import HydraNet
 from wilds import get_dataset
@@ -15,6 +16,7 @@ def main():
     train_dataset = dataset.get_subset('train',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     val_dataset = dataset.get_subset('val',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
 
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,num_classes=1000,pretrained=False)
     net = net.to(device)

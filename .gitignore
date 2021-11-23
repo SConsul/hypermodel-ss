@@ -6,3 +6,4 @@
 *.png
 data/
 .ipynb_checkpoints/
+runs/
