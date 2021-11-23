@@ -6,12 +6,12 @@ from torchvision import transforms
 from evaluate import evaluate
 
 def main():
-    num_epochs = 10
+    num_epochs = 50
     num_psudo_steps = 4
     num_tt_epochs = 10
     num_target_init = 5000
     num_pseudo_heads = 0
-    batch_size = 16
+    batch_size = 48
     dataset = get_dataset(dataset='fmow_mini', download=False)
     train_dataset = dataset.get_subset('train',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     val_dataset = dataset.get_subset('val',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))

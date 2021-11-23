@@ -12,7 +12,7 @@ from evaluate import evaluate
 from torch.utils.tensorboard import SummaryWriter
 
 
-def pseudo_label(net,device, target_dataset, n_t,batch_size=16,threshold = 0.9):
+def pseudo_label(net,device, target_dataset, n_t,batch_size,threshold = 0.9):
     assert net.num_heads>1, 'Number of pseudo-heads must be 2 or more'
     net.eval()
     total_outs = None
@@ -47,7 +47,7 @@ def pseudo_label(net,device, target_dataset, n_t,batch_size=16,threshold = 0.9):
 
 def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
     criterion = nn.CrossEntropyLoss()
-    optimizer_S = torch.optim.Adam(net.parameters())
+    optimizer_S = torch.optim.Adam(net.parameters(), lr=1e-4, weight_decay=0.96)
 
     
     train_loader = get_train_loader('standard', train_dataset, batch_size=batch_size)
@@ -86,7 +86,7 @@ def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
         if(epoch+1)%5 ==0:
             val_cerr = evaluate(net,val_dataset,batch_size)
             print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,val_cerr))
-            save_model(net,"source_trained_{}.pt".format(epoch+1))
+            save_model(net,"checkpoints/baseline/source_trained_{}.pt".format(epoch+1))
 
 def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_psudo_steps, num_adapt_epochs, n_t):
     # domain adaptation
@@ -98,8 +98,10 @@ def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_ps
     merged_dataset = ConcatDataset([source_dataset, target_dataset_labelled])
 
     criterion = nn.CrossEntropyLoss()
-    optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pheads.parameters()))
-    optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()))
+    optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pheads.parameters()),
+        lr=1e-4, weight_decay=0.96)
+    optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()),
+        lr=1e-4, weight_decay=0.96)
 
     for k in range(num_psudo_steps):
         net.train()
