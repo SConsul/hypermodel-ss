@@ -16,3 +16,9 @@ def save_model(net, filename):
                os.path.join(model_root, filename))
     print("save pretrained model to: {}".format(os.path.join(model_root,
                                                              filename)))
+def load_model(net, filename):
+    """Load trained model."""
+    model_root = "model_weights"
+    net.load_state_dict(torch.load(os.path.join(model_root, filename)))
+    print("load pretrained model from: {}".format(os.path.join(model_root,
+                                                            filename)))

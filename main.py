@@ -4,6 +4,7 @@ from models.hydranet import HydraNet
 from wilds import get_dataset
 from torchvision import transforms
 from evaluate import evaluate
+from utils import load_model
 
 def main():
     num_epochs = 50
@@ -14,14 +15,17 @@ def main():
     batch_size = 64
     num_classes = 62
     dataset = get_dataset(dataset='fmow_mini', download=False)
-    train_dataset = dataset.get_subset('train',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
-    val_dataset = dataset.get_subset('val',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
+    train_dataset = dataset.get_subset('train',
+        transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
+    val_dataset = dataset.get_subset('val', 
+        transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=False)
     net = net.to(device)
+    # load_model(net, "checkpoints/baseline/source_trained_4.pt")
     pre_train(net, device, train_dataset, val_dataset, batch_size, num_epochs)
     
     if num_pseudo_heads>0:

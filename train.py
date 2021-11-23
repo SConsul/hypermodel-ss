@@ -10,6 +10,7 @@ from datasets.dummy_datasets import get_dummy
 from utils import get_inf_iterator, save_model, get_inf_iterator
 from evaluate import evaluate
 from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 
 def pseudo_label(net,device, target_dataset, n_t,batch_size,threshold = 0.9):
@@ -53,6 +54,8 @@ def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
     train_loader = get_train_loader('standard', train_dataset, batch_size=batch_size)
     writer = SummaryWriter()
 
+    val_cerr = evaluate(net,device,val_dataset,batch_size)
+    # print(val_cerr.shape)
     # train with source samples
     for epoch in range(num_epochs):
         net.train()
@@ -85,8 +88,11 @@ def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
             writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
             val_cerr = evaluate(net,device,val_dataset,batch_size)
-            print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,val_cerr))
-            save_model(net,"checkpoints/baseline/source_trained_{}.pt".format(epoch+1))
+            print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,num_epochs,val_cerr))
+
+        save_model(net,"checkpoints/baseline/source_trained_{}_{}.pt".format(
+            datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), epoch+1))
+            
 
 def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_psudo_steps, num_adapt_epochs, n_t):
     # domain adaptation

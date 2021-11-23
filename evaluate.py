@@ -8,7 +8,8 @@ def calib_err(confidence, correct, p='2', beta=100):
     confidence = confidence[idxs]
     correct = correct[idxs]
     bins = [[i * beta, (i + 1) * beta] for i in range(len(confidence) // beta)]
-    bins[-1] = [bins[-1][0], len(confidence)]
+    # bins[-1] = [bins[-1][0], len(confidence)]
+    bins.append([[beta*(len(confidence) // beta), len(confidence)]])
 
     cerr = 0
     total_examples = len(confidence)
@@ -31,7 +32,7 @@ def calib_err(confidence, correct, p='2', beta=100):
 
     if p == '2':
         cerr = np.sqrt(cerr)
-
+    # print(cerr)
     return cerr
 
 def evaluate(net,device,test_dataset,batch_size):
@@ -46,7 +47,17 @@ def evaluate(net,device,test_dataset,batch_size):
             t_conf, _ = net(img.to(device))
 
             conf, pred = t_conf.data.max(1)
-            confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
-            correct.extend(pred.eq(lbl).cpu().numpy().squeeze().tolist())
-
-    return calib_err(confidences,correct)
+            # print(f'conf shape: {conf.shape}')
+            if conf.shape[0] > 1:
+                confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
+                correct.extend(pred.eq(lbl).cpu().numpy().squeeze().tolist())
+            else:
+                confidences.append(conf.data.cpu().numpy().squeeze())
+                correct.append(pred.eq(lbl).cpu().numpy().squeeze())
+            
+            # print(f'confidences shape: {len(confidences)}')
+            
+            # print(f'correct shape: {len(correct)}')
+            # calib_err(np.array(confidences),np.array(correct))
+    # print(f'confidences shape: {len(confidences)}')
+    return calib_err(np.array(confidences),np.array(correct))
