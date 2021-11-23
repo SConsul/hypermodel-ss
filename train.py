@@ -84,7 +84,7 @@ def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
             print("Epoch {}/{}: train_T_Loss={:.5f}".format(epoch+1,num_epochs,Loss_T))
             writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
-            val_cerr = evaluate(net,val_dataset,batch_size)
+            val_cerr = evaluate(net,device,val_dataset,batch_size)
             print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,val_cerr))
             save_model(net,"checkpoints/baseline/source_trained_{}.pt".format(epoch+1))
 

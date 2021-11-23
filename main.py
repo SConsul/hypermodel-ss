@@ -11,14 +11,16 @@ def main():
     num_tt_epochs = 10
     num_target_init = 5000
     num_pseudo_heads = 0
-    batch_size = 48
+    batch_size = 64
+    num_classes = 62
     dataset = get_dataset(dataset='fmow_mini', download=False)
     train_dataset = dataset.get_subset('train',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     val_dataset = dataset.get_subset('val',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,num_classes=1000,pretrained=False)
+    net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
+        num_classes=num_classes,pretrained=False)
     net = net.to(device)
     pre_train(net, device, train_dataset, val_dataset, batch_size, num_epochs)
     

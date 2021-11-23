@@ -44,8 +44,10 @@ def evaluate(net,device,test_dataset,batch_size):
             img = img.to(device)
             lbl = lbl.to(device)
             t_conf, _ = net(img.to(device))
+            print(t_conf.shape)
         
             conf, pred = t_conf.data.max(1)
+            print(pred)
             confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
             correct.extend(pred.eq(lbl).cpu().numpy().squeeze().tolist())
 
