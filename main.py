@@ -13,7 +13,7 @@ def main():
     num_adapt_epochs = 10
     num_target_init = 5000
     num_pseudo_heads = 0
-    batch_size = 2
+    batch_size = 64
     num_classes = 62
     dataset = get_dataset(dataset='fmow_mini', download=False)
     train_dataset = dataset.get_subset('train', 
