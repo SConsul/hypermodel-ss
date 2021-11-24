@@ -3,9 +3,11 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 from torchvision import transforms
+import torchvision
 from wilds import get_dataset
 from models.hydranet import HydraNet
 from utils import load_model
+from tqdm import tqdm
 
 def calib_err(confidence, correct, p='2', beta=100):
     # beta is target bin size
@@ -50,14 +52,15 @@ def evaluate(net,device,test_dataset,batch_size):
     num_total = 0.0
     criterion = nn.CrossEntropyLoss()
     with torch.no_grad():
-        for img,lbl,_ in test_dataloader:
+        for i, (img,lbl,_) in enumerate(tqdm(test_dataloader)):
             img = img.to(device)
             lbl = lbl.to(device)
             t_conf, _ = net(img.to(device))
+            #t_conf = net(img.to(device))
             loss = criterion(t_conf,lbl)
             vloss.append(loss.cpu())
             conf, pred = t_conf.data.max(1)
-
+            #print(f'loss {i}: {loss.cpu()}')
             num_correct += (pred==lbl).double().sum().item()
             num_total += pred.size(0)
             # print(f'conf shape: {conf.shape}')
@@ -76,15 +79,21 @@ def evaluate(net,device,test_dataset,batch_size):
 if __name__=="__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Device={}".format(device))
-    batch_size = 64
+    batch_size = 2
     num_classes = 62
     num_pseudo_heads = 0
 
-    net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
-        num_classes=num_classes,pretrained=False)
-    net = net.to(device) 
-    load_model(net, "C:\\Users\\akagr\\model_weights\\checkpoints\\baseline\\source_trained_2021-11-23-22-44-52_10.pt")
+    # net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
+    #     num_classes=num_classes,pretrained=False)
+    # net = net.to(device) 
+    # load_model(net, "C:\\Users\\akagr\\model_weights\\checkpoints\\baseline\\source_trained_2021-11-23-22-44-52_10.pt")
 
+    net = torchvision.models.densenet.densenet121()
+
+    pretrained_dict = torch.load("pretrained/fmow_seed_0_epoch_best_model.pth")
+    net.load_state_dict(pretrained_dict['algorithm'])
+    net = net.to(device)
+    
     dataset = get_dataset(dataset='fmow_mini', download=False)
     test_dataset = dataset.get_subset('val', 
         transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))

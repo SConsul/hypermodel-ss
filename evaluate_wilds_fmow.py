@@ -50,7 +50,6 @@ def initialize_torchvision_model(name, d_out, **kwargs):
     elif name == 'densenet121':
         constructor_name = name
         last_layer_name = 'classifier'
-        print("HELLO")
     elif name in ('resnet50', 'resnet34', 'resnet18'):
         constructor_name = name
         last_layer_name = 'fc'
@@ -58,11 +57,9 @@ def initialize_torchvision_model(name, d_out, **kwargs):
         raise ValueError(f'Torchvision model {name} not recognized')
     # construct the default model, which has the default last layer
     constructor = getattr(torchmodels, constructor_name)
-    print(constructor)
     model = constructor(pretrained=True)
     # adjust the last layer
     d_features = getattr(model, last_layer_name).in_features
-    print(d_features)
     if d_out is None:  # want to initialize a featurizer model
         last_layer = Identity(d_features)
         model.d_out = d_features
@@ -70,7 +67,6 @@ def initialize_torchvision_model(name, d_out, **kwargs):
         last_layer = nn.Linear(d_features, d_out)
         model.d_out = d_out
     setattr(model, last_layer_name, last_layer)
-    print("in init ",model.d_out)
     return model
 
 def initialize_model(config, d_out, is_featurizer=False):
@@ -97,7 +93,6 @@ def initialize_model(config, d_out, is_featurizer=False):
             classifier = nn.Linear(featurizer.d_out, d_out)
             model = (featurizer, classifier)
         else:
-            print("initialize ",config.model)
             model = initialize_torchvision_model(
                 name=config.model,
                 d_out=d_out,
@@ -108,7 +103,7 @@ if __name__=="__main__":
     '''
     python eval_wilds_fmow.py
     '''
-    batch_size = 64
+    batch_size = 2#64
     num_classes = 62
 
     parser = argparse.ArgumentParser()
@@ -122,7 +117,7 @@ if __name__=="__main__":
     print("Device={}".format(device))
     net = initialize_model(config,d_out=62)
     net.to(device)
-    weight_path = '../pretrained/fmow_seed_0_epoch_best_model.pth'
+    weight_path = 'pretrained/fmow_seed_0_epoch_best_model.pth'
     if device=='cpu':
         pre_dict = torch.load(weight_path,map_location=torch.device('cpu'))
     else:
@@ -131,7 +126,7 @@ if __name__=="__main__":
     d2 = OrderedDict([(key[6:],val) for key,val in pre_dict['algorithm'].items()])
     net.load_state_dict(d2)
 
-    dataset = get_dataset(dataset='fmow_mini', download=False)
+    dataset = get_dataset(dataset='fmow', download=False)
     test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
     print("Test Loss={}, Test Acc={}, Test Calib Error={}".format(test_loss, test_acc, test_cerr))
