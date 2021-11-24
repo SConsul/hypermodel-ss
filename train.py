@@ -46,7 +46,7 @@ def pseudo_label(net,device, target_dataset, n_t,batch_size,threshold = 0.9):
     target_dataset_labelled = get_dummy(target_dataset,excerpt,pseudo_labels,get_dataset=True)
     return target_dataset_labelled
 
-def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
+def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,epoch_offset=0):
     criterion = nn.CrossEntropyLoss()
     optimizer_S = torch.optim.Adam(net.parameters(), lr=1e-4, weight_decay=0.96)
 
@@ -54,10 +54,10 @@ def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
     train_loader = get_train_loader('standard', train_dataset, batch_size=batch_size)
     writer = SummaryWriter()
 
-    val_cerr = evaluate(net,device,val_dataset,batch_size)
+    val_loss, val_acc, val_cerr = evaluate(net,device,val_dataset,batch_size)
     # print(val_cerr.shape)
     # train with source samples
-    for epoch in range(num_epochs):
+    for epoch in range(epoch_offset,num_epochs):
         net.train()
         Loss_T = 0.0
         Loss_P = 0.0
@@ -80,18 +80,21 @@ def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs):
             #     print("train_T_Loss={:.5f}".format(loss_t))
             #     print(type(Loss_T))
         Loss_T = Loss_T/len(train_loader)
-        Loss_P = Loss_P/len(train_loader)  
+        Loss_P = Loss_P/len(train_loader)
+        
+        save_model(net,"checkpoints/baseline/source_trained_{}_{}.pt".format(
+            datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), epoch+1))
+
         if net.num_heads>0:  
             print("Epoch {}/{}: train_T_Loss={:.5f}, train_P_Loss={:.5f}".format(epoch+1,num_epochs,Loss_T,Loss_P))
         else:
             print("Epoch {}/{}: train_T_Loss={:.5f}".format(epoch+1,num_epochs,Loss_T))
             writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
-            val_cerr = evaluate(net,device,val_dataset,batch_size)
-            print("Epoch {}/{}: Calibration Error={:.5f}".format(epoch+1,num_epochs,val_cerr))
+            val_loss, val_acc, val_cerr = evaluate(net,device,val_dataset,batch_size)
+            print("Epoch {}/{}: Val_Loss={:.5f}, Val_Acc={:.5f}, Val_Cal Error={:.5f}".format(epoch+1,num_epochs,val_loss, val_acc,val_cerr))
 
-        save_model(net,"checkpoints/baseline/source_trained_{}_{}.pt".format(
-            datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), epoch+1))
+        
             
 
 def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_psudo_steps, num_adapt_epochs, n_t):

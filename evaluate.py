@@ -1,6 +1,11 @@
 import torch 
+import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
+from torchvision import transforms
+from wilds import get_dataset
+from models.hydranet import HydraNet
+from utils import load_model
 
 def calib_err(confidence, correct, p='2', beta=100):
     # beta is target bin size
@@ -40,13 +45,19 @@ def evaluate(net,device,test_dataset,batch_size):
     test_dataloader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
     confidences=[]
     correct = []
+    vloss = []
+    num_correct = 0.0
+    num_total = 0.0
     with torch.no_grad():
         for img,lbl,_ in test_dataloader:
             img = img.to(device)
             lbl = lbl.to(device)
             t_conf, _ = net(img.to(device))
-
+            vloss.append(nn.CrossEntropyLoss(t_conf,lbl).item())
             conf, pred = t_conf.data.max(1)
+
+            num_correct += (pred==lbl).double().sum().item()
+            num_total += pred.size(0)
             # print(f'conf shape: {conf.shape}')
             if conf.shape[0] > 1:
                 confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
@@ -54,10 +65,26 @@ def evaluate(net,device,test_dataset,batch_size):
             else:
                 confidences.append(conf.data.cpu().numpy().squeeze())
                 correct.append(pred.eq(lbl).cpu().numpy().squeeze())
-            
-            # print(f'confidences shape: {len(confidences)}')
-            
-            # print(f'correct shape: {len(correct)}')
-            # calib_err(np.array(confidences),np.array(correct))
-    # print(f'confidences shape: {len(confidences)}')
-    return calib_err(np.array(confidences),np.array(correct))
+
+    val_loss = vloss.mean()            
+    cerr = calib_err(np.array(confidences),np.array(correct)) 
+    acc = num_correct/num_total  
+    return val_loss, acc, cerr
+
+if __name__=="__main__":
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device={}".format(device))
+    batch_size = 64
+    num_classes = 62
+    num_pseudo_heads = 0
+
+    net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
+        num_classes=num_classes,pretrained=False)
+    net = net.to(device) 
+    load_model(net, "checkpoints/baseline/source_trained_4.pt")
+
+    dataset = get_dataset(dataset='fmow_mini', download=False)
+    test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
+    test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
+    print("Test Loss={}, Test Acc={}, Test Calib Error={}".format(test_loss, test_acc, test_cerr))
+    
