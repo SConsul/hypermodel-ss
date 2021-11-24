@@ -48,8 +48,18 @@ def pseudo_label(net,device, target_dataset, n_t,batch_size,threshold = 0.9):
 
 def pre_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,epoch_offset=0):
     criterion = nn.CrossEntropyLoss()
-    optimizer_S = torch.optim.Adam(net.parameters(), lr=1e-4, weight_decay=0.96)
-
+    # optimizer_S = torch.optim.Adam(net.parameters(), lr=1e-4, weight_decay=0.96)
+    if net.num_heads == 0:
+        optimizer_S = torch.optim.Adam(([
+                    {'params': net.enc.parameters(), 'lr': 1e-4,'weight_decay':0.96},
+                    {'params': net.tHead.parameters(), 'lr': 1e-3},
+                ]))
+    else:
+        optimizer_S = torch.optim.Adam(([
+                    {'params': net.enc.parameters(), 'lr': 1e-4,'weight_decay':0.96},
+                    {'params': net.tHead.parameters(), 'lr': 1e-3},
+                    {'params': net.pHeads.parameters(), 'lr': 1e-3}
+                ]))
     
     train_loader = get_train_loader('standard', train_dataset, batch_size=batch_size)
     writer = SummaryWriter()
@@ -107,7 +117,7 @@ def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_ps
     merged_dataset = ConcatDataset([source_dataset, target_dataset_labelled])
 
     criterion = nn.CrossEntropyLoss()
-    optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pheads.parameters()),
+    optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pHeads.parameters()),
         lr=1e-4, weight_decay=0.96)
     optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()),
         lr=1e-4, weight_decay=0.96)

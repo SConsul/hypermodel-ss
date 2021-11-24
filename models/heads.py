@@ -27,9 +27,8 @@ class PseudoHeads(nn.Module):
         return head_out
 
 class TargetHead(nn.Module):
-    def __init__(self, num_features: int,num_classes:int,pretrained:bool):
+    def __init__(self, num_features: int,num_classes:int):
         super().__init__()
-        self.pretrained = pretrained
         self.classifier = nn.Sequential(
             nn.Linear(num_features, num_features),
             nn.BatchNorm1d(num_features),
@@ -65,5 +64,5 @@ class TargetHead(nn.Module):
 
 
 if __name__=="__main__":
-    tHead = TargetHead(num_features=1024, num_classes=1000,pretrained=True)
-    pHeads = PseudoHeads(num_heads=2,num_features=1024, num_classes=1000)
+    tHead = TargetHead(num_features=1024, num_classes=62)
+    pHeads = PseudoHeads(num_heads=2,num_features=1024, num_classes=62)

@@ -48,12 +48,14 @@ def evaluate(net,device,test_dataset,batch_size):
     vloss = []
     num_correct = 0.0
     num_total = 0.0
+    criterion = nn.CrossEntropyLoss()
     with torch.no_grad():
         for img,lbl,_ in test_dataloader:
             img = img.to(device)
             lbl = lbl.to(device)
             t_conf, _ = net(img.to(device))
-            vloss.append(nn.CrossEntropyLoss(t_conf,lbl).item())
+            loss = criterion(t_conf,lbl)
+            vloss.append(loss.cpu())
             conf, pred = t_conf.data.max(1)
 
             num_correct += (pred==lbl).double().sum().item()
@@ -66,7 +68,7 @@ def evaluate(net,device,test_dataset,batch_size):
                 confidences.append(conf.data.cpu().numpy().squeeze())
                 correct.append(pred.eq(lbl).cpu().numpy().squeeze())
 
-    val_loss = vloss.mean()            
+    val_loss = np.array(vloss).mean()            
     cerr = calib_err(np.array(confidences),np.array(correct)) 
     acc = num_correct/num_total  
     return val_loss, acc, cerr
@@ -81,10 +83,11 @@ if __name__=="__main__":
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=False)
     net = net.to(device) 
-    load_model(net, "checkpoints/baseline/source_trained_4.pt")
+    load_model(net, "C:\\Users\\akagr\\model_weights\\checkpoints\\baseline\\source_trained_2021-11-23-22-44-52_10.pt")
 
     dataset = get_dataset(dataset='fmow_mini', download=False)
-    test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
+    test_dataset = dataset.get_subset('val', 
+        transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
     print("Test Loss={}, Test Acc={}, Test Calib Error={}".format(test_loss, test_acc, test_cerr))
     

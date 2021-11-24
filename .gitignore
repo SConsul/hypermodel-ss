@@ -8,3 +8,5 @@ data/
 .ipynb_checkpoints/
 runs/
 model_weights/
+pretrained/
+log_helpers.py

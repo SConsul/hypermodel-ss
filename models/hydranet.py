@@ -7,7 +7,7 @@ class HydraNet(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         self.enc = _Encoder(pretrained=pretrained)
-        self.tHead = TargetHead(num_features, num_classes,pretrained=pretrained)
+        self.tHead = TargetHead(num_features, num_classes)
         self.pHeads = PseudoHeads(self.num_heads,num_features, num_classes)
     
     def forward(self,x):

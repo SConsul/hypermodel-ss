@@ -13,10 +13,10 @@ def main():
     num_adapt_epochs = 10
     num_target_init = 5000
     num_pseudo_heads = 0
-    batch_size = 64
+    batch_size = 2
     num_classes = 62
     dataset = get_dataset(dataset='fmow_mini', download=False)
-    train_dataset = dataset.get_subset('train',
+    train_dataset = dataset.get_subset('train', 
         transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     val_dataset = dataset.get_subset('val', 
         transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
@@ -24,7 +24,7 @@ def main():
     print(device)
 
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
-        num_classes=num_classes,pretrained=False)
+        num_classes=num_classes,pretrained=True)
     net = net.to(device)
     # load_model(net, "checkpoints/baseline/source_trained_4.pt")
     pre_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,epoch_offset)
