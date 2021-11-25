@@ -29,12 +29,12 @@ class DummyDataset(data.Dataset):
 
 
 def get_dummy(original_dataset, excerpt, pseudo_labels,
-              get_dataset=False,
+              need_dataset=False,
               batch_size=16):
     """Get DummyDataset loader."""
     dummy_dataset = DummyDataset(original_dataset, excerpt, pseudo_labels)
 
-    if get_dataset:
+    if need_dataset:
         return dummy_dataset
     else:
         dummy_data_loader = torch.utils.data.DataLoader(

@@ -56,14 +56,12 @@ def evaluate(net,device,test_dataset,batch_size):
             img = img.to(device)
             lbl = lbl.to(device)
             t_conf, _ = net(img.to(device))
-            #t_conf = net(img.to(device))
+            #t_conf = net(img.to(device)) # wilds model use
             loss = criterion(t_conf,lbl)
             vloss.append(loss.cpu())
             conf, pred = t_conf.data.max(1)
-            #print(f'loss {i}: {loss.cpu()}')
             num_correct += (pred==lbl).double().sum().item()
             num_total += pred.size(0)
-            # print(f'conf shape: {conf.shape}')
             if conf.shape[0] > 1:
                 confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
                 correct.extend(pred.eq(lbl).cpu().numpy().squeeze().tolist())

@@ -234,7 +234,6 @@ def _load_state_dict(model: nn.Module, model_url: str, progress: bool) -> None:
     # has keys 'norm.1', 'relu.1', 'conv.1', 'norm.2', 'relu.2', 'conv.2'.
     # They are also in the checkpoints in model_urls. This pattern is used
     # to find such keys.
-    print("PRETRAINING")
     pattern = re.compile(
         r"^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$"
     )
@@ -251,7 +250,6 @@ def _load_state_dict(model: nn.Module, model_url: str, progress: bool) -> None:
             state_dict[new_key] = state_dict[key]
             del state_dict[key]
     state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
-    print("num weights transfered=",len(state_dict.keys()))
     # for key in state_dict.keys():
     #     print(key)
     model.load_state_dict(state_dict)

@@ -1,20 +1,29 @@
 import torch
-from train import pre_train, domain_adapt
+from train import source_train, domain_adapt
 from models.hydranet import HydraNet
 from wilds import get_dataset
 from torchvision import transforms
 from evaluate import evaluate
-from utils import load_model
+from utils import load_model, print_and_log, get_log_files
 
 def main():
     epoch_offset=0
-    num_epochs = 50
-    num_pseudo_steps = 2#10
+    num_epochs = 30
+    num_pseudo_steps = 10
     num_adapt_epochs = 2
-    num_pseudo_heads = 0
-    batch_size = 2#64
+    num_pseudo_heads = 2
+    batch_size = 2
     num_classes = 62
-    orig_frac = 5e-2
+    orig_frac = 5e-2 # fraction of data to be used while training
+                  # useful to set to 5e-2 for local runs
+    threshold = 0.9
+
+    if num_pseudo_heads>0:
+        log_loc = f"logs/ssl_{num_pseudo_heads}"
+    else:
+        log_loc = f"logs/baseline"
+
+    log_file = get_log_files(log_loc)
 
 
     dataset = get_dataset(dataset='fmow_mini', download=False)
@@ -29,7 +38,7 @@ def main():
         num_classes=num_classes,pretrained=True)
     net = net.to(device)
 
-    pre_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,epoch_offset)
+    source_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,log_file,epoch_offset)
     
     if num_pseudo_heads>0:
         for k in range(1,num_pseudo_steps+1):
@@ -37,11 +46,14 @@ def main():
             target_dataset = dataset.get_subset('val', frac=orig_frac*frac,
         transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
             domain_adapt(net, device, train_dataset, val_dataset, 
-                batch_size, frac, num_adapt_epochs)
+                batch_size, k, num_adapt_epochs, threshold, log_file)
 
     test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
-    print("Test Loss={}, Test Acc={}, Test Calib Error={}".format(test_loss, test_acc, test_cerr))
+    print_and_log(message="Test Loss={}, Test Acc={}, Test Calib Error={}".format(
+        test_loss, test_acc, test_cerr), log_file=log_file)
+
+    log_file.close()
 
 if __name__=="__main__":
     main()
