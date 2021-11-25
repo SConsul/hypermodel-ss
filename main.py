@@ -12,9 +12,9 @@ def main():
     num_pseudo_steps = 10
     num_adapt_epochs = 2
     num_pseudo_heads = 2
-    batch_size = 2
+    batch_size = 64
     num_classes = 62
-    orig_frac = 5e-2 # fraction of data to be used while training
+    orig_frac = 1 # fraction of data to be used while training
                   # useful to set to 5e-2 for local runs
     threshold = 0.9
 
