@@ -7,17 +7,17 @@ from evaluate import evaluate
 from utils import load_model, print_and_log, get_log_files
 
 def main():
-    epoch_offset=5
+    epoch_offset=0
     num_epochs = 30
     num_pseudo_steps = 10
     num_adapt_epochs = 2
-    num_pseudo_heads = 2
+    num_pseudo_heads = 3
     batch_size = 64
     num_classes = 62
     orig_frac = 1 # fraction of data to be used while training
                   # useful to set to 5e-2 for local runs
     threshold = 0.9
-
+    print("Num heads=",num_pseudo_heads)
     if num_pseudo_heads>0:
         log_loc = f"logs/ssl_{num_pseudo_heads}"
     else:
@@ -38,7 +38,7 @@ def main():
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=True)
     net = net.to(device)
-    net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-19-44-40/source_trained_epoch_5.pt"))
+    # net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-19-44-40/source_trained_epoch_5.pt"))
 
     source_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
     
