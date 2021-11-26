@@ -1,3 +1,4 @@
+import os
 import torch 
 import torch.nn as nn
 from itertools import chain
@@ -91,7 +92,7 @@ def pseudo_label2(net, device, target_dataset, batch_size, threshold=0.9):
 #     return target_dataset_labelled
 
 def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
-    log_file,epoch_offset=0):
+    model_dir,log_file,epoch_offset=0):
     criterion = nn.CrossEntropyLoss()
     optimizer_enc = torch.optim.Adam(net.enc.parameters(), lr=1e-4)
     scheduler_enc = torch.optim.lr_scheduler.ExponentialLR(optimizer_enc, gamma=0.96)
@@ -153,30 +154,19 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
 
         Loss_T = Loss_T/len(train_loader)
 
-        if net.num_heads>0:  
-            save_model(net,"checkpoints/ssl_{}/source_trained_{}_epoch_{}.pt".format(
-                net.num_heads, 
-                datetime.now().strftime("%Y-%m-%d-%H-%M-%S"),  
-                epoch+1))
+        save_model(net,os.path.join(model_dir,f"source_trained_epoch_{epoch+1}.pt"))
 
-            print_and_log(message="Epoch {}/{}: train_T_Loss={:.7f}, train_P_Loss={:.7f}".format(
-                epoch+1,num_epochs,Loss_T,Loss_P),
-                log_file=log_file)
-        else:
-            save_model(net,"checkpoints/baseline/source_trained_{}_{}.pt".format(
-            datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), epoch+1))
-
-            print_and_log(message="Epoch {}/{}: train_T_Loss={:.7f}".format(
-                epoch+1,num_epochs,Loss_T),
-                log_file=log_file)
-            writer.add_scalar("Loss/train", Loss_T.item(), epoch)
+        print_and_log(message="Epoch {}/{}: train_T_Loss={:.7f}, train_P_Loss={:.7f}".format(
+            epoch+1,num_epochs,Loss_T,Loss_P),
+            log_file=log_file)
+        writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
             val_loss, val_acc, val_cerr = evaluate(net,device,val_dataset,batch_size)
             print_and_log(message="Epoch {}/{}: Val_Loss={:.7f}, Val_Acc={:.7f}, Val_Cal Error={:.7f}".format(
                 epoch+1,num_epochs,val_loss, val_acc,val_cerr),log_file=log_file)
 
 def domain_adapt(net, device, source_dataset, target_dataset, 
-    batch_size, k_step, num_adapt_epochs, threshold, log_file):
+    batch_size, k_step, num_adapt_epochs, threshold, model_dir,log_file):
     if net.num_heads == 0:
         return
 
@@ -244,12 +234,8 @@ def domain_adapt(net, device, source_dataset, target_dataset,
 
         Loss_P = Loss_P/len(merged_dataloader)
         Loss_T = Loss_T/len(merged_dataloader)
-        save_model(net,"checkpoints/ssl_{}/ssl_trained_{}_frac_{}_epoch_{}.pt".format(
-                net.num_heads, 
-                datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), 
-                int(k_step), 
-                epoch+1))
 
+        save_model(net,os.path.join(model_dir,f"domain_adapt_step_{k_step}_epoch_{epoch+1}.pt"))
         print_and_log(message="Domain Adapt Epoch {}/{}: Target Loss={:.7f}, Pseudo Loss={:.7f}".format(
             epoch+1,num_adapt_epochs,Loss_T, Loss_P),
             log_file=log_file)

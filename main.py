@@ -23,7 +23,8 @@ def main():
     else:
         log_loc = f"logs/baseline"
 
-    log_file = get_log_files(log_loc)
+    model_path = f"model_weights/num_heads_{num_pseudo_heads}"
+    model_dir, log_file = get_log_files(model_path,log_loc)
 
 
     dataset = get_dataset(dataset='fmow_mini', download=False)
@@ -39,7 +40,7 @@ def main():
     net = net.to(device)
     #net.load_state_dict(torch.load("pretrained/source_trained_2021-11-26-03-22-44_epoch_30.pt"))
 
-    source_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,log_file,epoch_offset)
+    source_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
     
     if num_pseudo_heads>0:
         for k in range(1,num_pseudo_steps+1):
@@ -47,7 +48,7 @@ def main():
             target_dataset = dataset.get_subset('val', frac=orig_frac*frac,
         transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
             domain_adapt(net, device, train_dataset, val_dataset, 
-                batch_size, k, num_adapt_epochs, threshold, log_file)
+                batch_size, k, num_adapt_epochs, threshold, model_dir,log_file)
 
     test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
