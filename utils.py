@@ -11,7 +11,7 @@ def get_log_files(model_path,checkpoint_dir):
     checkpoint_dir = os.path.join(checkpoint_dir, datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
     os.makedirs(checkpoint_dir)
 
-    model_dir = os.path_join(model_path,datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
+    model_dir = os.path.join(model_path,datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
     os.makedirs(model_dir)
     
     logfile_path = os.path.join(checkpoint_dir, 'log.txt')
@@ -32,13 +32,9 @@ def get_inf_iterator(data_loader):
 
 def save_model(net, filename):
     """Save trained model."""
-    model_root = "model_weights"
-    if not os.path.exists(model_root):
-        os.makedirs(model_root)
-    torch.save(net.state_dict(),
-               os.path.join(model_root, filename))
-    print("save pretrained model to: {}".format(os.path.join(model_root,
-                                                             filename)))
+    torch.save(net.state_dict(),filename)
+    print("save model to: {}".format(filename))
+    
 def load_model(net, filename):
     """Load trained model."""
     model_root = "model_weights"
