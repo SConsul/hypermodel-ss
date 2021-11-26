@@ -63,11 +63,11 @@ def evaluate(net,device,test_dataset,batch_size):
             num_correct += (pred==lbl).double().sum().item()
             num_total += pred.size(0)
             if conf.shape[0] > 1:
-                confidences.extend(conf.data.cpu().numpy().squeeze(-1).tolist())
-                correct.extend(pred.eq(lbl).cpu().numpy().squeeze(-1).tolist())
+                confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
+                correct.extend(pred.eq(lbl).cpu().numpy().squeeze().tolist())
             else:
-                confidences.append(conf.data.cpu().numpy().squeeze(-1))
-                correct.append(pred.eq(lbl).cpu().numpy().squeeze(-1))
+                confidences.append(conf.data.cpu().numpy().squeeze())
+                correct.append(pred.eq(lbl).cpu().numpy().squeeze())
 
     val_loss = np.array(vloss).mean()            
     cerr = calib_err(np.array(confidences),np.array(correct)) 

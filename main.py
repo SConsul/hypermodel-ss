@@ -7,7 +7,7 @@ from evaluate import evaluate
 from utils import load_model, print_and_log, get_log_files
 
 def main():
-    epoch_offset=0
+    epoch_offset=5
     num_epochs = 30
     num_pseudo_steps = 10
     num_adapt_epochs = 2
@@ -38,7 +38,7 @@ def main():
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=True)
     net = net.to(device)
-    #net.load_state_dict(torch.load("pretrained/source_trained_2021-11-26-03-22-44_epoch_30.pt"))
+    net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-19-44-40/source_trained_epoch_5.pt"))
 
     source_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
     
