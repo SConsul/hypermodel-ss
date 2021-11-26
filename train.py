@@ -17,9 +17,9 @@ def pseudo_label2(net, device, target_dataset, batch_size, threshold=0.9):
     net.eval()
     target_dataloader = DataLoader(target_dataset,batch_size=batch_size, 
         shuffle=False)
-    excerpt_final = torch.Tensor()
-    pseudo_labels_final = torch.Tensor()
-    for img,_,_ in target_dataloader:
+    excerpt_final = torch.IntTensor()
+    pseudo_labels_final = torch.IntTensor()
+    for batch_counter, (img,_,_) in enumerate(target_dataloader):
         _, p_outs = net(img.to(device)) # num_heads x batch_size x num_classes
         p_outs = [p_out.data.cpu() for p_out in p_outs]
         _, pred_0 = torch.max(p_outs[0], 1)
@@ -38,11 +38,11 @@ def pseudo_label2(net, device, target_dataset, batch_size, threshold=0.9):
         
         mask_conf = max_conf > threshold
         mask_final = max_conf*mask_common
-        excerpt = torch.nonzero(mask_final).squeeze()
+        excerpt = torch.nonzero(mask_final).squeeze(-1)
         # print(excerpt)
         _, pseudo_labels = torch.max(p_outs[0][excerpt, :], 1)
 
-        excerpt_final = torch.cat([excerpt_final, excerpt+batch_size])
+        excerpt_final = torch.cat([excerpt_final, excerpt+batch_counter*batch_size])
         pseudo_labels_final = torch.cat([pseudo_labels_final, pseudo_labels])
     if excerpt_final.shape[0] == 0:
         is_empty = True
@@ -131,8 +131,9 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
             if net.num_heads>0:
                 optimizer_pHeads.zero_grad()
                 loss_p = [criterion(p_out, label) for p_out in p_outs]
-                loss += sum(loss_p)
-                Loss_P += sum(loss_p)/len(loss_p)
+                avg_loss_p = sum(loss_p)/len(loss_p)
+                loss += avg_loss_p
+                Loss_P += avg_loss_p
 
             loss.backward()
 
@@ -187,10 +188,19 @@ def domain_adapt(net, device, source_dataset, target_dataset,
     merged_dataset = ConcatDataset([source_dataset, target_dataset_labelled])
 
     criterion = nn.CrossEntropyLoss()
-    optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pHeads.parameters()),
-        lr=1e-4)
-    optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()),
-        lr=1e-4)
+
+    optimizer_enc = torch.optim.Adam(net.enc.parameters(), lr=1e-4*(0.96)**30)
+    scheduler_enc = torch.optim.lr_scheduler.ExponentialLR(optimizer_enc, gamma=0.96)
+    optimizer_tHead = torch.optim.Adam(net.tHead.parameters(), lr=1e-3*(0.96)**30)
+    scheduler_tHead = torch.optim.lr_scheduler.ExponentialLR(optimizer_tHead, gamma=0.96)
+    optimizer_pHeads = torch.optim.Adam(net.pHeads.parameters(), lr=1e-3*(0.96)**30)
+    scheduler_pHeads = torch.optim.lr_scheduler.ExponentialLR(optimizer_pHeads, gamma=0.96)
+
+
+    # optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pHeads.parameters()),
+    #     lr=1e-4)
+    # optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()),
+    #     lr=1e-4)
 
     net.train()
     merged_dataloader = DataLoader(merged_dataset,batch_size=batch_size, 
@@ -199,38 +209,49 @@ def domain_adapt(net, device, source_dataset, target_dataset,
         batch_size=batch_size, shuffle=True, drop_last=True))
 
     for epoch in range(num_adapt_epochs):
+        Loss_P = 0.0
+        Loss_T = 0.0
         for img, label, _ in merged_dataloader:
-            pseudo_img, pseudo_target_labels = next(target_dataloader_labelled)
+            pseudo_img, pseudo_target_labels, _ = next(target_dataloader_labelled)
             img = Variable(img.to(device))
             label = Variable(label.to(device))
-            pseudo_img = Variable(pseudo_img)
-            pseudo_target_labels = Variable(pseudo_target_labels)
+            pseudo_img = Variable(pseudo_img.to(device))
+            pseudo_target_labels = Variable(pseudo_target_labels.to(device))
 
-            optimizer_pseudo.zero_grad()
-            optimizer_target.zero_grad()
+            optimizer_enc.zero_grad()
+            optimizer_pHeads.zero_grad()
             # Train F, F_heads with merged dataset
             t_out, p_outs = net(img)
-            loss_heads = []
-            for p_out in p_outs:
-                loss_p = criterion(p_out, label)
-                loss_p.backward()
-                loss_heads.append(loss_p)
-            optimizer_pseudo.step()
-            
+            loss_p = [criterion(p_out, label) for p_out in p_outs]
+            loss = sum(loss_p)/len(loss_p)
+            loss.backward()
+            Loss_P +=loss
+            optimizer_enc.step()
+            optimizer_pHeads.step()
+
             # Train F, F_t with pseudo-labelled target data
+            optimizer_enc.zero_grad()
+            optimizer_tHead.zero_grad()
             t_out, _ = net(pseudo_img)
             loss_t = criterion(t_out, pseudo_target_labels)
             loss_t.backward()
-            optimizer_target.step()
-    
+            optimizer_enc.step()
+            optimizer_tHead.step()
+            Loss_T+=loss_t
+        scheduler_enc.step()
+        scheduler_tHead.step()
+        scheduler_pHeads.step()
+
+        Loss_P = Loss_P/len(merged_dataloader)
+        Loss_T = Loss_T/len(merged_dataloader)
         save_model(net,"checkpoints/ssl_{}/ssl_trained_{}_frac_{}_epoch_{}.pt".format(
                 net.num_heads, 
                 datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), 
                 int(k_step), 
                 epoch+1))
 
-        print_and_log(message="Domain Adapt Epoch {}/{}: Loss={:.7f}".format(
-            epoch+1,num_adapt_epochs,loss_t),
+        print_and_log(message="Domain Adapt Epoch {}/{}: Target Loss={:.7f}, Pseudo Loss={:.7f}".format(
+            epoch+1,num_adapt_epochs,Loss_T, Loss_P),
             log_file=log_file)
 
 # def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_pseudo_steps, num_adapt_epochs, n_t):

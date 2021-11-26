@@ -37,6 +37,7 @@ def main():
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=True)
     net = net.to(device)
+    #net.load_state_dict(torch.load("pretrained/source_trained_2021-11-26-03-22-44_epoch_30.pt"))
 
     source_train(net, device, train_dataset, val_dataset, batch_size,num_epochs,log_file,epoch_offset)
     

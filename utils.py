@@ -24,8 +24,8 @@ def get_log_files(checkpoint_dir="logs"):
 def get_inf_iterator(data_loader):
     """Inf data iterator."""
     while True:
-        for images, labels in data_loader:
-            yield (images, labels)
+        for images, labels, metadata in data_loader:
+            yield (images, labels, metadata)
 
 def save_model(net, filename):
     """Save trained model."""
