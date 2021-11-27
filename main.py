@@ -12,7 +12,7 @@ def main():
     num_epochs = 30
     num_pseudo_steps = 10
     num_adapt_epochs = 2
-    num_pseudo_heads = 3
+    num_pseudo_heads = 2
     batch_size = 64
     num_classes = 62
     orig_frac = 1 # fraction of data to be used while training
@@ -40,7 +40,7 @@ def main():
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=True)
     net = net.to(device)
-    net.load_state_dict(torch.load("model_weights/num_heads_3/2021-11-27-01-34-29/source_trained_epoch_30.pt"))
+    net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-20-41-45/source_trained_epoch_30.pt"))
 
     #source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
     
