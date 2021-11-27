@@ -45,34 +45,88 @@ def calib_err(confidence, correct, p='2', beta=100):
 def evaluate(net,device,test_dataset,batch_size):
     net.eval()
     test_dataloader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
-    confidences=[]
-    correct = []
+    t_confidences=[]
+    t_correct = []
+    p_confidences = []
+    p_correct = []
     vloss = []
-    num_correct = 0.0
     num_total = 0.0
+    t_num_correct = 0.0
     criterion = nn.CrossEntropyLoss()
+    threshold=0.9 ###MAKE PARARM
+    num_common_corrects = 0.0
+    num_common_incorrects = 0.0
+    num_common_incorrects_high_conf = 0.0
+    num_common_corrects_high_conf = 0.0
+
     with torch.no_grad():
         for i, (img,lbl,_) in enumerate(tqdm(test_dataloader)):
             img = img.to(device)
             lbl = lbl.to(device)
-            t_conf, _ = net(img.to(device))
-            #t_conf = net(img.to(device)) # wilds model use
-            loss = criterion(t_conf,lbl)
+            tar_conf, p_confs = net(img.to(device))
+
+            loss = criterion(tar_conf,lbl)
             vloss.append(loss.cpu())
-            conf, pred = t_conf.data.max(1)
-            num_correct += (pred==lbl).double().sum().item()
-            num_total += pred.size(0)
-            if conf.shape[0] > 1:
-                confidences.extend(conf.data.cpu().numpy().squeeze().tolist())
-                correct.extend(pred.eq(lbl).cpu().numpy().squeeze().tolist())
+
+            t_conf, t_pred = tar_conf.data.max(1)
+            t_conf,t_pred = t_conf.cpu(), t_pred.cpu()
+            t_num_correct += (t_pred==lbl).double().sum().item()
+            num_total += t_pred.size(0)
+            if t_conf.shape[0] > 1:
+                t_confidences.extend(t_conf.data.numpy().squeeze().tolist())
+                t_correct.extend(t_pred.eq(lbl).numpy().squeeze().tolist())
             else:
-                confidences.append(conf.data.cpu().numpy().squeeze())
-                correct.append(pred.eq(lbl).cpu().numpy().squeeze())
+                t_confidences.append(t_conf.data.numpy().squeeze())
+                t_correct.append(t_pred.eq(lbl).numpy().squeeze())
+
+            if net.num_heads>0:
+                common_corrects = torch.ones(t_conf.shape[0])
+                common_incorrects = torch.ones(t_conf.shape[0])
+                common_incorrects_high_conf = torch.zeros(t_conf.shape[0])
+                common_corrects_high_conf = torch.zeros(t_conf.shape[0])
+                max_confs = torch.zeroes(t_conf.shape[0])
+                for ph_conf in p_confs:
+                    p_conf, p_pred = ph_conf.data.max(1)
+                    p_conf,p_pred = p_conf.cpu(), p_pred.cpu()
+
+                    max_confs = torch.max(max_confs,p_conf)
+                    p_correct = (p_conf==lbl)
+                    p_incorrect = (p_conf!=lbl)
+                    common_corrects *= p_correct
+                    common_incorrects *= p_incorrect #B,
+                    
+                    high_conf = p_conf>threshold
+                    p_inc_high = high_conf*p_incorrect
+                    p_corr_high = high_conf*p_correct
+                    common_incorrects_high_conf = (common_incorrects_high_conf+p_inc_high).clamp(0,1)
+                    common_corrects_high_conf = (common_corrects_high_conf+p_corr_high).clamp(0,1)
+
+                    ens_p_conf = max_confs*(common_corrects_high_conf-common_incorrects_high_conf)
+                    ens_pred = (common_corrects_high_conf+common_incorrects_high_conf).clamp(0,1)
+
+                if ens_p_conf.shape[0] > 1:
+                    p_confidences.extend(ens_p_conf.data.numpy().squeeze().tolist())
+                    p_correct.extend(ens_pred.data.numpy().squeeze().tolist())
+                else:
+                    p_confidences.append(ens_p_conf.data.numpy().squeeze())
+                    p_correct.append(ens_pred.data.numpy().squeeze())
+
+                num_common_corrects += common_corrects.double().sum().item()
+                num_common_incorrects += common_incorrects.double().sum().item()
+                num_common_incorrects_high_conf += common_incorrects_high_conf.double().sum().item()
+                num_common_corrects_high_conf += common_corrects_high_conf.double().sum().item()
 
     val_loss = np.array(vloss).mean()            
-    cerr = calib_err(np.array(confidences),np.array(correct)) 
-    acc = num_correct/num_total  
-    return val_loss, acc, cerr
+    t_cerr = calib_err(np.array(t_confidences),np.array(t_correct)) 
+    p_cerr = calib_err(np.array(p_confidences),np.array(p_correct)) 
+    acc = t_num_correct/num_total  
+
+    com_corr_high = num_common_corrects_high_conf/num_total
+    com_corr = num_common_corrects/num_total
+    com_inc = num_common_incorrects/num_total
+    com_inc_high = num_common_incorrects_high_conf/num_total
+    disag = 1.0 - com_corr - com_inc
+    return val_loss, acc, t_cerr, (com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr)
 
 if __name__=="__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

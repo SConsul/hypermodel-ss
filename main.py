@@ -51,10 +51,12 @@ def main():
                 batch_size, k, num_adapt_epochs, threshold, model_dir,log_file)
 
     test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
-    test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
+    test_loss, test_acc, test_cerr, test_pHead_stats = evaluate(net,device,test_dataset,batch_size)
+    com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = test_pHead_stats
     print_and_log(message="Test Loss={}, Test Acc={}, Test Calib Error={}".format(
         test_loss, test_acc, test_cerr), log_file=log_file)
-
+    print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
+                com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
     log_file.close()
 
 if __name__=="__main__":

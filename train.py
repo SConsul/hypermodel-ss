@@ -161,10 +161,13 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
             log_file=log_file)
         writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
-            val_loss, val_acc, val_cerr = evaluate(net,device,val_dataset,batch_size)
-            print_and_log(message="Epoch {}/{}: Val_Loss={:.7f}, Val_Acc={:.7f}, Val_Cal Error={:.7f}".format(
-                epoch+1,num_epochs,val_loss, val_acc,val_cerr),log_file=log_file)
-
+            val_loss, val_acc, val_cerr, val_pHead_stats = evaluate(net,device,val_dataset,batch_size)
+            com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = val_pHead_stats
+            print_and_log(message="Val_Loss={:.7f}, Val_Acc={:.7f}, Val_Cal Error={:.7f}".format(
+                val_loss, val_acc,val_cerr),log_file=log_file)
+            print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
+                com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
+                
 def domain_adapt(net, device, source_dataset, target_dataset, 
     batch_size, k_step, num_adapt_epochs, threshold, model_dir,log_file):
     if net.num_heads == 0:
@@ -236,8 +239,8 @@ def domain_adapt(net, device, source_dataset, target_dataset,
         Loss_T = Loss_T/len(merged_dataloader)
 
         save_model(net,os.path.join(model_dir,f"domain_adapt_step_{k_step}_epoch_{epoch+1}.pt"))
-        print_and_log(message="Domain Adapt Epoch {}/{}: Target Loss={:.7f}, Pseudo Loss={:.7f}".format(
-            epoch+1,num_adapt_epochs,Loss_T, Loss_P),
+        print_and_log(message="Domain Adapt Step {} Epoch {}/{}: Target Loss={:.7f}, Pseudo Loss={:.7f}".format(
+            k_step, epoch+1,num_adapt_epochs,Loss_T, Loss_P),
             log_file=log_file)
 
 # def domain_adapt(net, device, source_dataset, target_dataset, batch_size, num_pseudo_steps, num_adapt_epochs, n_t):
