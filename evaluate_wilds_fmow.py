@@ -4,8 +4,9 @@ import torch.nn as nn
 from collections import OrderedDict
 from torchvision import transforms
 from torchvision import models as torchmodels
-from evaluate import evaluate
 from wilds import get_dataset
+from wilds.common.data_loaders import get_eval_loader
+from tqdm import tqdm
 
 def parse_bool(v):
     if v.lower()=='true':
@@ -103,7 +104,7 @@ if __name__=="__main__":
     '''
     python eval_wilds_fmow.py
     '''
-    batch_size = 2#64
+    batch_size = 4#64
     num_classes = 62
 
     parser = argparse.ArgumentParser()
@@ -114,6 +115,7 @@ if __name__=="__main__":
     config = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = "cpu"
     print("Device={}".format(device))
     net = initialize_model(config,d_out=62)
     net.to(device)
@@ -127,7 +129,27 @@ if __name__=="__main__":
     net.load_state_dict(d2)
 
     dataset = get_dataset(dataset='fmow', download=False)
-    test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
-    test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
-    print("Test Loss={}, Test Acc={}, Test Calib Error={}".format(test_loss, test_acc, test_cerr))
-    
+    test_dataset = dataset.get_subset('test',
+        frac=1, transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
+    test_loader = get_eval_loader('standard', test_dataset, batch_size=batch_size)
+
+    all_y_true = torch.Tensor()
+    all_y_pred = torch.Tensor()
+    all_metadata = torch.Tensor()
+    net.eval()
+    for x, y_true, metadata in tqdm(test_loader):
+        x = x.to(device)
+        y_pred = net(x)
+        y_pred = y_pred.cpu().argmax(1)
+
+        #[accumulate y_true, y_pred, metadata]
+        all_y_true = torch.cat([all_y_true, y_true])
+        all_y_pred = torch.cat([all_y_pred, y_pred])
+        all_metadata = torch.cat([all_metadata, metadata])
+
+    #test_loss, test_acc, test_cerr = evaluate(net,device,test_dataset,batch_size)
+    results = dataset.eval(all_y_pred, all_y_true, all_metadata)
+    print(results)
+
+    # print("Test Loss={}, Test Acc={}, Test Calib Error={}".format(test_loss, test_acc, test_cerr))
+    # 

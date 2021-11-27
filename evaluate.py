@@ -45,10 +45,10 @@ def calib_err(confidence, correct, p='2', beta=100):
 def evaluate(net,device,test_dataset,batch_size):
     net.eval()
     test_dataloader = DataLoader(test_dataset,batch_size=batch_size, shuffle=False)
-    t_confidences=[]
-    t_correct = []
-    p_confidences = []
-    p_correct = []
+    t_confidences = torch.Tensor()
+    t_correct = torch.Tensor()
+    p_confidences = torch.Tensor()
+    p_correct = torch.Tensor()
     vloss = []
     num_total = 0.0
     t_num_correct = 0.0
@@ -70,51 +70,56 @@ def evaluate(net,device,test_dataset,batch_size):
 
             t_conf, t_pred = tar_conf.data.max(1)
             t_conf,t_pred = t_conf.cpu(), t_pred.cpu()
+            lbl = lbl.cpu()
             t_num_correct += (t_pred==lbl).double().sum().item()
             num_total += t_pred.size(0)
-            if t_conf.shape[0] > 1:
-                t_confidences.extend(t_conf.data.numpy().squeeze().tolist())
-                t_correct.extend(t_pred.eq(lbl).numpy().squeeze().tolist())
-            else:
-                t_confidences.append(t_conf.data.numpy().squeeze())
-                t_correct.append(t_pred.eq(lbl).numpy().squeeze())
+            t_confidences = torch.cat([t_confidences, t_conf])
+            t_correct = torch.cat([t_correct, t_pred.eq(lbl)])
+            # if t_conf.shape[0] > 1:
+            #     t_confidences.extend(t_conf.data.numpy().squeeze().tolist())
+            #     t_correct.extend(t_pred.eq(lbl).numpy().squeeze().tolist())
+            # else:
+            #     t_confidences.append(t_conf.data.numpy().squeeze())
+            #     t_correct.append(t_pred.eq(lbl).numpy().squeeze())
 
             if net.num_heads>0:
-                common_corrects = torch.ones(t_conf.shape[0])
-                common_incorrects = torch.ones(t_conf.shape[0])
-                common_incorrects_high_conf = torch.zeros(t_conf.shape[0])
-                common_corrects_high_conf = torch.zeros(t_conf.shape[0])
-                max_confs = torch.zeroes(t_conf.shape[0])
+                common_corr = torch.ones(t_conf.shape[0])
+                common_inc = torch.ones(t_conf.shape[0])
+                common_inc_high_conf = torch.zeros(t_conf.shape[0])
+                common_corr_high_conf = torch.zeros(t_conf.shape[0])
+                max_confs = torch.zeros(t_conf.shape[0])
                 for ph_conf in p_confs:
                     p_conf, p_pred = ph_conf.data.max(1)
                     p_conf,p_pred = p_conf.cpu(), p_pred.cpu()
 
                     max_confs = torch.max(max_confs,p_conf)
-                    p_correct = (p_conf==lbl)
-                    p_incorrect = (p_conf!=lbl)
-                    common_corrects *= p_correct
-                    common_incorrects *= p_incorrect #B,
+                    p_corr = (p_conf==lbl)
+                    p_inc = (p_conf!=lbl)
+                    common_corr *= p_corr
+                    common_inc *= p_inc #B,
                     
                     high_conf = p_conf>threshold
-                    p_inc_high = high_conf*p_incorrect
-                    p_corr_high = high_conf*p_correct
-                    common_incorrects_high_conf = (common_incorrects_high_conf+p_inc_high).clamp(0,1)
-                    common_corrects_high_conf = (common_corrects_high_conf+p_corr_high).clamp(0,1)
+                    p_inc_high = high_conf*p_inc
+                    p_corr_high = high_conf*p_corr
+                    common_inc_high_conf = (common_inc_high_conf+p_inc_high).clamp(0,1)
+                    common_corr_high_conf = (common_corr_high_conf+p_corr_high).clamp(0,1)
 
-                    ens_p_conf = max_confs*(common_corrects_high_conf-common_incorrects_high_conf)
-                    ens_pred = (common_corrects_high_conf+common_incorrects_high_conf).clamp(0,1)
+                    ens_p_conf = max_confs*(common_corr_high_conf-common_inc_high_conf)
+                    ens_pred = (common_corr_high_conf+common_inc_high_conf).clamp(0,1)
 
-                if ens_p_conf.shape[0] > 1:
-                    p_confidences.extend(ens_p_conf.data.numpy().squeeze().tolist())
-                    p_correct.extend(ens_pred.data.numpy().squeeze().tolist())
-                else:
-                    p_confidences.append(ens_p_conf.data.numpy().squeeze())
-                    p_correct.append(ens_pred.data.numpy().squeeze())
+                p_confidences = torch.cat([p_confidences, ens_p_conf])
+                p_correct = torch.cat([p_correct, ens_pred])
+                # if ens_p_conf.shape[0] > 1:
+                #     p_confidences.extend(ens_p_conf.data.numpy().squeeze().tolist())
+                #     p_correct.extend(ens_pred.data.numpy().squeeze().tolist())
+                # else:
+                #     p_confidences.append(ens_p_conf.data.numpy().squeeze())
+                #     p_correct.append(ens_pred.data.numpy().squeeze())
 
-                num_common_corrects += common_corrects.double().sum().item()
-                num_common_incorrects += common_incorrects.double().sum().item()
-                num_common_incorrects_high_conf += common_incorrects_high_conf.double().sum().item()
-                num_common_corrects_high_conf += common_corrects_high_conf.double().sum().item()
+                num_common_corrects += common_corr.double().sum().item()
+                num_common_incorrects += common_inc.double().sum().item()
+                num_common_incorrects_high_conf += common_inc_high_conf.double().sum().item()
+                num_common_corrects_high_conf += common_corr_high_conf.double().sum().item()
 
     val_loss = np.array(vloss).mean()            
     t_cerr = calib_err(np.array(t_confidences),np.array(t_correct)) 
