@@ -7,7 +7,7 @@ from evaluate import evaluate
 from utils import load_model, print_and_log, get_log_files
 
 def main():
-    target_domain = 'val'
+    target_domain = 'test'
     epoch_offset=0
     num_epochs = 30
     num_pseudo_steps = 10
