@@ -5,19 +5,32 @@ from wilds import get_dataset
 from torchvision import transforms
 from evaluate import evaluate
 from utils import load_model, print_and_log, get_log_files
+import argparse
 
 def main():
-    target_domain = 'test'
-    epoch_offset=0
-    num_epochs = 30
-    num_pseudo_steps = 10
-    num_adapt_epochs = 2
-    num_pseudo_heads = 2
-    batch_size = 64
-    num_classes = 62
-    orig_frac = 1 # fraction of data to be used while training
-                  # useful to set to 5e-2 for local runs
-    threshold = 0.9
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--target_domain', required=True, default={'test'}, choices={'test','val'})
+    parser.add_argument('--num_pseudo_heads', type=int, required=True, default=0)   
+    parser.add_argument('--epoch_offset', type=int, required=False, default=0)
+    parser.add_argument('--num_epochs', type=int, default=30)
+    parser.add_argument('--num_pseudo_steps', type=int, default=10)
+    parser.add_argument('--num_adapt_epochs', type=int, default=2)    
+    parser.add_argument('--batch_size', type=int, default=64)    
+    parser.add_argument('--num_classes', type=int, default=62)    
+    parser.add_argument('--orig_frac', type=float, default=1.0, help="fraction of data to be used while training, useful to set to 5e-2 for local runs")
+    parser.add_argument('--threshold', type=float, default=0.9)    
+
+    args = parser.parse_args()
+    target_domain = args.target_domain
+    num_pseudo_heads = args.num_pseudo_heads
+    epoch_offset = args.epoch_offset
+    num_epochs = args.num_epochs
+    num_pseudo_steps = args.num_pseudo_steps
+    num_adapt_epochs = args.num_adapt_epochs
+    batch_size = args.batch_size
+    num_classes = args.num_classes
+    orig_frac = args.orig_frac 
+    threshold = args.threshold
 
     print("Num heads=",num_pseudo_heads)
     if num_pseudo_heads>0:
@@ -42,7 +55,7 @@ def main():
     net = net.to(device)
     net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-20-41-45/source_trained_epoch_30.pt"))
 
-    #source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
+    source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
     
     if num_pseudo_heads>0:
         for k in range(1,num_pseudo_steps+1):
