@@ -1,5 +1,5 @@
 import torch
-from train import source_train, domain_adapt
+from train import source_train, source_train_bootstrap, domain_adapt
 from models.hydranet import HydraNet
 from wilds import get_dataset
 from torchvision import transforms
@@ -18,7 +18,8 @@ def main():
     parser.add_argument('--batch_size', type=int, default=64)    
     parser.add_argument('--num_classes', type=int, default=62)    
     parser.add_argument('--orig_frac', type=float, default=1.0, help="fraction of data to be used while training, useful to set to 5e-2 for local runs")
-    parser.add_argument('--threshold', type=float, default=0.9)    
+    parser.add_argument('--threshold', type=float, default=0.9)  
+    parser.add_argument('--bootstrap', action=argparse.BooleanOptionalAction)   
 
     args = parser.parse_args()
     target_domain = args.target_domain
@@ -53,9 +54,14 @@ def main():
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=True)
     net = net.to(device)
-    net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-20-41-45/source_trained_epoch_30.pt"))
+    # net.load_state_dict(torch.load("model_weights/num_heads_2/2021-11-26-20-41-45/source_trained_epoch_30.pt"))
 
-    source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
+    if args.bootstrap:
+        print("SOURCE TRAINING WITH BOOTSTRAPPING")
+        source_train_bootstrap(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
+    else:
+        print("STANDARD SOURCE TRAINING")
+        source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
     
     if num_pseudo_heads>0:
         for k in range(1,num_pseudo_steps+1):
@@ -72,14 +78,6 @@ def main():
                     tatget_loss, target_acc,target_cerr),log_file=log_file)
                 print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
                     com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
-
-    # test_dataset = dataset.get_subset('test',transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
-    # test_loss, test_acc, test_cerr, test_pHead_stats = evaluate(net,device,test_dataset,batch_size)
-    # com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = test_pHead_stats
-    # print_and_log(message="Test Loss={}, Test Acc={}, Test Calib Error={}".format(
-    #     test_loss, test_acc, test_cerr), log_file=log_file)
-    # print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
-    #             com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
     log_file.close()
 
 if __name__=="__main__":
