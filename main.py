@@ -19,7 +19,7 @@ def main():
     parser.add_argument('--num_classes', type=int, default=62)    
     parser.add_argument('--orig_frac', type=float, default=1.0, help="fraction of data to be used while training, useful to set to 5e-2 for local runs")
     parser.add_argument('--threshold', type=float, default=0.9)  
-    parser.add_argument('--bootstrap', action=argparse.BooleanOptionalAction)   
+    parser.add_argument('--bootstrap', type=bool, default=False)   
 
     args = parser.parse_args()
     target_domain = args.target_domain
