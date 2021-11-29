@@ -81,7 +81,7 @@ def main():
                 com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = target_pHead_stats
                 print_and_log(message="Tgt_Loss={:.7f}, Tgt_Acc={:.7f}, Tgt_Cal Error={:.7f}".format(
                     target_loss, target_accs[0], target_cerr),log_file=log_file)
-                print_and_log(message="Accuracies of heads = {:.7f}".format(target_accs[1:]))
+                print_and_log(message=f"Accuracies of heads = {target_accs[1]}",log_file=log_file)
                 print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
                     com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
                 
