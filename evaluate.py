@@ -8,6 +8,7 @@ from wilds import get_dataset
 from models.hydranet import HydraNet
 from utils import load_model
 from tqdm import tqdm
+import argparse
 
 def calib_err(confidence, correct, p='2', beta=100):
     # beta is target bin size
@@ -61,9 +62,7 @@ def evaluate(net,device,test_dataset,batch_size):
     num_common_incorrects = 0.0
     num_common_incorrects_high_conf = 0.0
     num_common_corrects_high_conf = 0.0
-
-    
-
+    num_disagree = 0.0
     with torch.no_grad():
         for i, (img,lbl,_) in enumerate(tqdm(test_dataloader)):
             img = img.to(device)
@@ -83,63 +82,74 @@ def evaluate(net,device,test_dataset,batch_size):
             t_correct = torch.cat([t_correct, t_pred.eq(lbl)])
 
             if net.num_heads>0:
-                common_corr = torch.ones(t_conf.shape[0]).to(device_loc)
-                common_inc = torch.ones(t_conf.shape[0]).to(device_loc)
-                common_inc_high_conf = torch.zeros(t_conf.shape[0]).to(device_loc)
-                common_corr_high_conf = torch.zeros(t_conf.shape[0]).to(device_loc)
-                max_confs = torch.zeros(t_conf.shape[0])
+                max_confs = torch.zeros(t_conf.shape[0]).to(device_loc).type(torch.bool)
+                mask_common = torch.ones(t_conf.shape[0]).to(device_loc).type(torch.bool)
+                mask_common_corr = torch.ones(t_conf.shape[0]).to(device_loc).type(torch.bool)
                 for i,p_out in enumerate(p_outs):
                     p_conf, p_pred = p_out.data.max(1)
                     p_conf, p_pred = p_conf.to(device_loc), p_pred.to(device_loc)
                     p_num_correct[i] += (p_pred==lbl).double().sum().item()
 
                     max_confs = torch.max(max_confs,p_conf)
-                    p_corr = (p_pred==lbl)
-                    p_inc = (p_pred!=lbl)
-                    common_corr *= p_corr
-                    common_inc *= p_inc #B,
-                    
-                    high_conf = p_conf>threshold
-                    p_inc_high = high_conf*p_inc
-                    p_corr_high = high_conf*p_corr
-                    common_inc_high_conf = ((common_inc_high_conf+p_inc_high).clamp(0,1))*common_inc
-                    common_corr_high_conf = ((common_corr_high_conf+p_corr_high).clamp(0,1))*common_corr
+                    if i==0:
+                        p_pred_0 = p_pred
+                    else:
+                        mask_common = mask_common * torch.eq(p_pred_0,p_pred)
+                    mask_common_corr = torch.logical_and(mask_common_corr,(p_pred==lbl))
+                
+                mask_common_inc = torch.logical_and(mask_common, mask_common_corr.logical_not())
+                mask_high = (max_confs>threshold)
+                common_correct_high = torch.logical_and(mask_high, mask_common_corr)
+                common_incorrect_high = torch.logical_and(mask_high, mask_common_inc)
 
-                    ens_p_conf = max_confs*((common_corr_high_conf+common_inc_high_conf).clamp(0,1))
-                    ens_corr = common_corr_high_conf
-
+                ens_p_conf = max_confs*torch.logical_or(common_correct_high,common_incorrect_high)
+                ens_corr = common_correct_high
                 p_confidences = torch.cat([p_confidences, ens_p_conf])
                 p_correct = torch.cat([p_correct, ens_corr])
-                
-                num_common_corrects += common_corr.double().sum().item()
-                num_common_incorrects += common_inc.double().sum().item()
-                num_common_incorrects_high_conf += common_inc_high_conf.double().sum().item()
-                num_common_corrects_high_conf += common_corr_high_conf.double().sum().item()
+            
+                num_common_corrects += mask_common_corr.double().sum().item()
+                num_common_incorrects += mask_common_inc.double().sum().item()
+                num_common_corrects_high_conf += common_correct_high.double().sum().item()
+                num_common_incorrects_high_conf += common_incorrect_high.double().sum().item()
+                num_disagree += (mask_common.logical_not()).double().sum().item()
+        val_loss = np.array(vloss).mean()            
+        t_cerr = calib_err(np.array(t_confidences),np.array(t_correct)) 
+        p_cerr = calib_err(np.array(p_confidences),np.array(p_correct)) 
+        acc = t_num_correct/num_total  
+        acc_pheads = p_num_correct/num_total
 
-    val_loss = np.array(vloss).mean()            
-    t_cerr = calib_err(np.array(t_confidences),np.array(t_correct)) 
-    p_cerr = calib_err(np.array(p_confidences),np.array(p_correct)) 
-    acc = t_num_correct/num_total  
-    acc_pheads = p_num_correct/num_total
+        com_corr_high = num_common_corrects_high_conf/num_total
+        com_corr = num_common_corrects/num_total
+        com_inc = num_common_incorrects/num_total
+        com_inc_high = num_common_incorrects_high_conf/num_total
+        disag = num_disagree/num_total
 
-    com_corr_high = num_common_corrects_high_conf/num_total
-    com_corr = num_common_corrects/num_total
-    com_inc = num_common_incorrects/num_total
-    com_inc_high = num_common_incorrects_high_conf/num_total
-    disag = 1.0 - com_corr - com_inc
-    return val_loss, (acc, acc_pheads), t_cerr, (com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr)
+        return val_loss, (acc, acc_pheads), t_cerr, (com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr)
 
 if __name__=="__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--target_domain', required=True, default={'test'}, choices={'test','val'})
+    parser.add_argument('--num_pseudo_heads', type=int, required=True, default=0)   
+    parser.add_argument('--num_classes', type=int, default=62) 
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--frac', type=float, default=1.0)
+    parser.add_argument('--model_path',default=None)
+    args = parser.parse_args()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     print("Device={}".format(device))
-    batch_size = 4
-    num_classes = 62
-    num_pseudo_heads = 0
+    target_domain = args.target_domain
+    num_pseudo_heads = args.num_pseudo_heads
+    batch_size = args.batch_size
+    num_classes = args.num_classes
+    frac = args.frac
+    model_path = args.model_path
 
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=False)
     net = net.to(device) 
-    load_model(net, "C:\\Users\\akagr\\hypermodel-ss\\model_weights_vm\\baseline\\source_trained_10.pt")
+    net.load_state_dict(torch.load(model_path))
 
     #net = torchvision.models.densenet.densenet121()
 
@@ -148,7 +158,7 @@ if __name__=="__main__":
     # net = net.to(device)
     
     dataset = get_dataset(dataset='fmow_mini', download=False)
-    test_dataset = dataset.get_subset('val', frac=1,
+    test_dataset = dataset.get_subset(target_domain, frac=frac,
         transform=transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]))
     test_loss, accs, test_cerr, val_pHead_stats = evaluate(net,device,test_dataset,batch_size)
     com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = val_pHead_stats
