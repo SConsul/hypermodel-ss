@@ -55,7 +55,7 @@ def pseudo_label(net, device, target_dataset, batch_size, threshold=0.9):
     return target_dataset_labelled, is_empty
 
 def source_train_bootstrap(net,device, train_dataset,val_dataset,batch_size,num_epochs,
-    model_dir,log_file,epoch_offset=0):
+    model_dir,log_file,epoch_offset=0,threshold=0.9):
     criterion = nn.CrossEntropyLoss()
     optimizer_enc = torch.optim.Adam(net.enc.parameters(), lr=1e-4)
     scheduler_enc = torch.optim.lr_scheduler.ExponentialLR(optimizer_enc, gamma=0.96)
@@ -69,12 +69,9 @@ def source_train_bootstrap(net,device, train_dataset,val_dataset,batch_size,num_
         scheduler_pHeads_arr = [torch.optim.lr_scheduler.ExponentialLR(optimizer_pHead, gamma=0.96)
                             for optimizer_pHead in optimizer_pHeads_arr]
 
-    # get_train_loader('standard', train_dataset, batch_size=batch_size)
+    
     writer = SummaryWriter()
 
-    # val_loss, val_acc, val_cerr = evaluate(net,device,val_dataset,batch_size)
-    # print(val_cerr.shape)
-    # train with source samples
     for epoch in range(epoch_offset,num_epochs):
         sampler = RandomSampler(train_dataset, replacement=True, num_samples=len(train_dataset))
         train_loader = DataLoader(train_dataset,batch_size=batch_size, 
@@ -94,7 +91,6 @@ def source_train_bootstrap(net,device, train_dataset,val_dataset,batch_size,num_
             loss_t = criterion(t_out, label)
             loss = loss_t 
             Loss_T +=loss_t
-            # print(f"loss_t: {loss_t}")
             rand_phead = int(np.random.randint(net.num_heads))
             if net.num_heads>0:
                 optimizer_pHeads_arr[rand_phead].zero_grad()
@@ -128,7 +124,7 @@ def source_train_bootstrap(net,device, train_dataset,val_dataset,batch_size,num_
             log_file=log_file)
         writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if (epoch+1)%5 ==0:
-            target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,val_dataset,batch_size)
+            target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,val_dataset,batch_size,threshold)
             com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = target_pHead_stats
             print_and_log(message="Tgt_Loss={:.7f}, Tgt_Acc={:.7f}, Tgt_Cal Error={:.7f}".format(
                 target_loss, target_accs[0], target_cerr),log_file=log_file)
@@ -137,7 +133,7 @@ def source_train_bootstrap(net,device, train_dataset,val_dataset,batch_size,num_
                 com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
         
 def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
-    model_dir,log_file,epoch_offset=0):
+    model_dir,log_file,epoch_offset=0,threshold=0.9):
     criterion = nn.CrossEntropyLoss()
     optimizer_enc = torch.optim.Adam(net.enc.parameters(), lr=1e-4)
     scheduler_enc = torch.optim.lr_scheduler.ExponentialLR(optimizer_enc, gamma=0.96)
@@ -149,12 +145,8 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
 
     train_loader = DataLoader(train_dataset,batch_size=batch_size, 
         shuffle=True, drop_last=True)
-
-    # get_train_loader('standard', train_dataset, batch_size=batch_size)
     writer = SummaryWriter()
 
-    # val_loss, val_acc, val_cerr = evaluate(net,device,val_dataset,batch_size)
-    # print(val_cerr.shape)
     # train with source samples
     for epoch in range(epoch_offset,num_epochs):
         net.train()
@@ -172,7 +164,6 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
             loss_t = criterion(t_out, label)
             loss = loss_t 
             Loss_T +=loss_t
-            # print(f"loss_t: {loss_t}")
             if net.num_heads>0:
                 optimizer_pHeads.zero_grad()
                 loss_p = [criterion(p_out, label) for p_out in p_outs]
@@ -186,10 +177,7 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
             optimizer_tHead.step()
             if net.num_heads>0:
                 optimizer_pHeads.step()
-                
-            # else:
-            #     print("train_T_Loss={:.7f}".format(loss_t))
-            #     print(type(Loss_T))
+
         scheduler_enc.step()
         scheduler_tHead.step()
         if net.num_heads>0:
@@ -205,7 +193,7 @@ def source_train(net,device, train_dataset,val_dataset,batch_size,num_epochs,
             log_file=log_file)
         writer.add_scalar("Loss/train", Loss_T.item(), epoch)
         if(epoch+1)%5 ==0:
-            target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,val_dataset,batch_size)
+            target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,val_dataset,batch_size,threshold)
             com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = target_pHead_stats
             print_and_log(message="Tgt_Loss={:.7f}, Tgt_Acc={:.7f}, Tgt_Cal Error={:.7f}".format(
                 target_loss, target_accs[0], target_cerr),log_file=log_file)
@@ -233,12 +221,6 @@ def domain_adapt(net, device, source_dataset, target_dataset,
     scheduler_tHead = torch.optim.lr_scheduler.ExponentialLR(optimizer_tHead, gamma=0.96)
     optimizer_pHeads = torch.optim.Adam(net.pHeads.parameters(), lr=1e-3*(0.96)**30)
     scheduler_pHeads = torch.optim.lr_scheduler.ExponentialLR(optimizer_pHeads, gamma=0.96)
-
-
-    # optimizer_pseudo = torch.optim.Adam(list(net.enc.parameters())+list(net.pHeads.parameters()),
-    #     lr=1e-4)
-    # optimizer_target = torch.optim.Adam(list(net.enc.parameters())+list(net.tHead.parameters()),
-    #     lr=1e-4)
 
     net.train()
     merged_dataloader = DataLoader(merged_dataset,batch_size=batch_size, 

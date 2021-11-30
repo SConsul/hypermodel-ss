@@ -63,12 +63,22 @@ def main():
 
     if args.bootstrap:
         print("SOURCE TRAINING WITH BOOTSTRAPPING")
-        source_train_bootstrap(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
+        source_train_bootstrap(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset,threshold)
     else:
         print("STANDARD SOURCE TRAINING")
-        source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset)
+        source_train(net, device, train_dataset, target_dataset, batch_size,num_epochs,model_dir,log_file,epoch_offset,threshold)
     
     if num_pseudo_heads>0:
+        if epoch_offset>=num_epochs:
+            print("Skip Source training by loading model weights")
+            target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,target_dataset,batch_size,threshold)
+            com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = target_pHead_stats
+            print_and_log(message="Tgt_Loss={:.7f}, Tgt_Acc={:.7f}, Tgt_Cal Error={:.7f}".format(
+                target_loss, target_accs[0], target_cerr),log_file=log_file)
+            print_and_log(message=f"Accuracies of heads = {target_accs[1]}",log_file=log_file)
+            print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
+                com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
+
         for k in range(1+da_epoch_offset,num_pseudo_steps+1):
             frac = min(1., k/num_pseudo_steps)
             target_dataset_frac = dataset.get_subset(target_domain, frac=orig_frac*frac,
@@ -77,7 +87,7 @@ def main():
                 batch_size, k, num_adapt_epochs, threshold, model_dir,log_file)
 
             if (k%5) ==0:
-                target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,target_dataset,batch_size)
+                target_loss, target_accs, target_cerr, target_pHead_stats = evaluate(net,device,target_dataset,batch_size,threshold)
                 com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = target_pHead_stats
                 print_and_log(message="Tgt_Loss={:.7f}, Tgt_Acc={:.7f}, Tgt_Cal Error={:.7f}".format(
                     target_loss, target_accs[0], target_cerr),log_file=log_file)
@@ -85,13 +95,6 @@ def main():
                 print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
                     com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
                 
-
-                # tatget_loss, target_acc, target_cerr, target_pHead_stats = evaluate(net,device,target_dataset,batch_size)
-                # com_corr_high, com_corr, com_inc, com_inc_high, disag, p_cerr = target_pHead_stats
-                # print_and_log(message="Target_Loss={:.7f}, Target_Acc={:.7f}, Target_Cal Error={:.7f}".format(
-                #     tatget_loss, target_acc,target_cerr),log_file=log_file)
-                # print_and_log(message="com_corr_high={:.7f}, com_corr={:.7f}, com_inc={:.7f}, com_inc_high={:.7f}, disag={:.7f}, P_Cal Error={:.7f}".format(
-                #     com_corr_high, com_corr,com_inc,com_inc_high,disag,p_cerr),log_file=log_file)
     log_file.close()
 
 if __name__=="__main__":

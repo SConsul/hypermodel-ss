@@ -43,7 +43,7 @@ def calib_err(confidence, correct, p='2', beta=100):
     # print(cerr)
     return cerr
 
-def evaluate(net,device,test_dataset,batch_size):
+def evaluate(net,device,test_dataset,batch_size,threshold=0.9):
     net.eval()
     device_loc = "cpu"
 
@@ -57,7 +57,7 @@ def evaluate(net,device,test_dataset,batch_size):
     t_num_correct = 0.0
     p_num_correct = torch.zeros(net.num_heads).to(device_loc)
     criterion = nn.CrossEntropyLoss()
-    threshold=0.9 ###MAKE PARARM
+    threshold=threshold
     num_common_corrects = 0.0
     num_common_incorrects = 0.0
     num_common_incorrects_high_conf = 0.0
