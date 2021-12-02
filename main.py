@@ -15,13 +15,12 @@ def main():
     parser.add_argument('--num_epochs', type=int, default=30)
     parser.add_argument('--num_pseudo_steps', type=int, default=10)
     parser.add_argument('--num_adapt_epochs', type=int, default=2)    
-    parser.add_argument('--batch_size', type=int, default=64)    
-    parser.add_argument('--num_classes', type=int, default=62)    
+    parser.add_argument('--batch_size', type=int, default=64)      
     parser.add_argument('--orig_frac', type=float, default=1.0, help="fraction of data to be used while training, useful to set to 5e-2 for local runs")
     parser.add_argument('--threshold', type=float, default=0.9)  
     parser.add_argument('--bootstrap', type=bool, default=False)  
     parser.add_argument('--saved_model_path', default=None)  
-    parser.add_argument('--da_epoch_offset', type=int, required=False, default=0)
+    parser.add_argument('--da_step_offset', type=int, required=False, default=0)
 
     args = parser.parse_args()
     target_domain = args.target_domain
@@ -31,12 +30,12 @@ def main():
     num_pseudo_steps = args.num_pseudo_steps
     num_adapt_epochs = args.num_adapt_epochs
     batch_size = args.batch_size
-    num_classes = args.num_classes
     orig_frac = args.orig_frac 
     threshold = args.threshold
     saved_model_path = args.saved_model_path
     da_epoch_offset = args.da_epoch_offset
-
+    
+    num_classes = 62
     print("Num heads=",num_pseudo_heads)
     if num_pseudo_heads>0:
         log_loc = f"logs/ssl_{num_pseudo_heads}"
