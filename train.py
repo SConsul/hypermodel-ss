@@ -7,7 +7,7 @@ from torch.utils.data import ConcatDataset, DataLoader, RandomSampler
 from torchvision import datasets, transforms
 from wilds.common.data_loaders import get_train_loader,get_eval_loader
 from models.hydranet import HydraNet
-from datasets.dummy_datasets import get_dummy
+from dummy_datasets import get_dummy
 from utils import get_inf_iterator, save_model, get_inf_iterator, print_and_log
 from evaluate import evaluate
 from torch.utils.tensorboard import SummaryWriter

@@ -11,6 +11,9 @@ from tqdm import tqdm
 import argparse
 
 def calib_err(confidence, correct, p='2', beta=100):
+    '''
+    Adapted from https://github.com/hendrycks/outlier-exposure/blob/e6ede98a5474a0620d9befa50b38eaf584df4401/utils/calibration_tools.py
+    '''
     # beta is target bin size
     idxs = np.argsort(confidence)
     confidence = confidence[idxs]
