@@ -130,7 +130,6 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--target_domain', required=True, default={'test'}, choices={'test','val'})
     parser.add_argument('--num_pseudo_heads', type=int, required=True, default=0)   
-    parser.add_argument('--num_classes', type=int, default=62) 
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--frac', type=float, default=1.0)
     parser.add_argument('--model_path',default=None)
@@ -142,10 +141,10 @@ if __name__=="__main__":
     target_domain = args.target_domain
     num_pseudo_heads = args.num_pseudo_heads
     batch_size = args.batch_size
-    num_classes = args.num_classes
     frac = args.frac
     model_path = args.model_path
-
+    num_classes = 62
+    
     net = HydraNet(num_heads=num_pseudo_heads, num_features=1024,
         num_classes=num_classes,pretrained=False)
     net = net.to(device) 
